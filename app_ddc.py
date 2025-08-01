@@ -183,7 +183,7 @@ def icon_svg(icon_name):
 # --- Barre latérale navigation ---
 with st.sidebar:
     selected = option_menu(
-        "📊 DataClean Pro",
+        "📊 DDC – Smart Data Cleaner",
         ["🏠 Accueil", "🧹 Nettoyage", "📊 Tableau de bord", "📊 EDA", "📈 Visualisation", "💾 Téléchargement", "ℹ️ À propos"],
         icons=[
             icon_svg("home"),
