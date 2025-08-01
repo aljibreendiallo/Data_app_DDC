@@ -333,7 +333,6 @@ if selected == "📊 Tableau de bord":
         for col in cols:
             safe_key = col.replace(" ", "_").replace("'", "_").replace("(", "").replace(")", "")
             if df_filtered[col].dtype == 'object':
-                # ✅ Correction : convertir en str avant tri
                 unique_vals = df_filtered[col].dropna().astype(str).unique()
                 unique_vals = sorted([x for x in unique_vals if x != 'nan'], key=str)
                 st.multiselect(
@@ -392,11 +391,9 @@ if selected == "📊 Tableau de bord":
             )
             fig.update_traces(hovertemplate="<b>%{label}</b>: %{value} lignes")
             st.plotly_chart(fig, use_container_width=True)
-            # ✅ Supprimé : le bouton de téléchargement PNG (Plotly a déjà son bouton intégré)
             st.info("👉 Utilisez le bouton 📥 en haut à droite du graphique pour le télécharger.")
         else:
             st.info("Aucune colonne catégorielle disponible pour la visualisation.")
-
         # --- Téléchargement des données filtrées ---
         st.subheader("💾 Exporter les données filtrées")
         csv = df_filtered.to_csv(index=False).encode('utf-8')
@@ -404,7 +401,6 @@ if selected == "📊 Tableau de bord":
         with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
             df_filtered.to_excel(writer, index=False, sheet_name='Données Filtrées')
         excel_data = excel_buffer.getvalue()
-
         col1, col2 = st.columns(2)
         with col1:
             st.download_button(
@@ -435,20 +431,16 @@ if selected == "📊 EDA":
     df = st.session_state.cleaned_data
     if df is not None and not df.empty:
         st.subheader("🔍 Sélectionnez une ou plusieurs colonnes pour l'analyse")
-        
         all_columns = df.columns.tolist()
         selected_cols = st.multiselect(
             "📋 Colonnes à analyser",
             options=all_columns,
             default=all_columns[:3] if len(all_columns) >= 3 else all_columns
         )
-
         if not selected_cols:
             st.info("Veuillez sélectionner au moins une colonne pour commencer l'analyse.")
         else:
-            # Stockage des résultats d'analyse
             eda_data = []
-
             for col in selected_cols:
                 with st.expander(f"📊 Analyse de : `{col}`", expanded=True):
                     col_type = df[col].dtype
@@ -456,10 +448,8 @@ if selected == "📊 EDA":
                     n_missing = df[col].isna().sum()
                     n_total = len(df)
                     missing_pct = n_missing / n_total * 100
-
                     st.markdown(f"**Type :** `{col_type}` | **Uniques :** `{n_unique}`")
                     st.markdown(f"**Manquantes :** `{n_missing}` (`{missing_pct:.1f}%`)")
-
                     if pd.api.types.is_numeric_dtype(df[col]):
                         stats = {
                             "Min": df[col].min(),
@@ -470,24 +460,33 @@ if selected == "📊 EDA":
                         }
                         for k, v in stats.items():
                             st.markdown(f"**{k} :** `{v:.2f}`" if isinstance(v, float) else f"**{k} :** `{v}`")
-
-                        fig = px.histogram(df, x=col, nbins=30, title=f"Histogramme - {col}")
+                        fig = px.histogram(
+                            df,
+                            x=col,
+                            nbins=30,
+                            title=f"Histogramme - {col}",
+                            color_discrete_sequence=px.colors.qualitative.Bold
+                        )
                         fig.update_layout(showlegend=False, font_color="#e0e0ff")
                         st.plotly_chart(fig, use_container_width=True)
-
                     elif pd.api.types.is_object_dtype(df[col]):
                         mode_val = df[col].mode()
                         mode_str = mode_val.iloc[0] if len(mode_val) > 0 else "Aucun"
                         st.markdown(f"**Mode :** `{mode_str}`")
-
                         top_vals = df[col].value_counts().head(10)
                         st.dataframe(top_vals.to_frame("Fréquence"), use_container_width=True)
-
-                        fig = px.bar(top_vals, x=top_vals.index, y=top_vals.values, title=f"Top 10 - {col}")
+                        # 🔴 Graphique en barres COLORÉ
+                        fig = px.bar(
+                            top_vals,
+                            x=top_vals.index,
+                            y=top_vals.values,
+                            title=f"Top 10 - {col}",
+                            labels={col: col, "y": "Fréquence"},
+                            color=top_vals.index,
+                            color_discrete_sequence=px.colors.qualitative.Bold
+                        )
                         fig.update_layout(font_color="#e0e0ff")
                         st.plotly_chart(fig, use_container_width=True)
-
-                    # Ajouter au rapport
                     eda_data.append({
                         "Colonne": col,
                         "Type": str(col_type),
@@ -498,33 +497,22 @@ if selected == "📊 EDA":
                         "Min/Moyenne/Mode": stats["Min"] if pd.api.types.is_numeric_dtype(df[col]) else mode_str,
                         "Max/Exemple": stats["Max"] if pd.api.types.is_numeric_dtype(df[col]) else str(df[col].dropna().iloc[0] if len(df[col].dropna()) > 0 else "—")
                     })
-
             # --- Générer le rapport Excel ---
             st.subheader("📥 Télécharger le rapport EDA en Excel")
-
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-                # Feuille Résumé
                 summary_df = pd.DataFrame(eda_data)
                 summary_df.to_excel(writer, sheet_name='Résumé EDA', index=False)
-
-                # Valeurs manquantes
                 missing_df = df[selected_cols].isna().sum().to_frame("Manquantes")
                 missing_df["%"] = (missing_df["Manquantes"] / len(df)) * 100
                 missing_df.to_excel(writer, sheet_name='Valeurs manquantes')
-
-                # Extrait des données
                 df[selected_cols].head(100).to_excel(writer, sheet_name='Extrait données', index=False)
-
-                # Formatage
                 workbook = writer.book
                 worksheet = writer.sheets['Résumé EDA']
                 worksheet.set_column("A:A", 18)
                 worksheet.set_column("B:B", 12)
                 worksheet.set_column("C:F", 14)
-
             excel_data = excel_buffer.getvalue()
-
             st.download_button(
                 label=f"{icon_svg('download')} 📥 Télécharger le rapport EDA (Excel)",
                 data=excel_data,
@@ -533,11 +521,8 @@ if selected == "📊 EDA":
                 use_container_width=True,
                 help="Télécharge un rapport complet avec statistiques, valeurs manquantes et extrait des données"
             )
-
     else:
         st.warning("⚠️ Veuillez importer et nettoyer un jeu de données d'abord.")
-
-
 
 # --- Page Visualisation ---
 if selected == "📈 Visualisation":
@@ -550,10 +535,23 @@ if selected == "📈 Visualisation":
             col_cat = st.selectbox("🧾 Choisissez une colonne catégorielle", cat_cols, key="cat_col_visu")
             chart_type = st.radio("📉 Type de graphique", ["Barres", "Camembert"], key="chart_type_visu")
             if chart_type == "Barres":
-                fig = px.bar(df[col_cat].value_counts(), title=f"Distribution de '{col_cat}'", labels={"index": col_cat, "value": "Count"})
+                vc = df[col_cat].value_counts()
+                fig = px.bar(
+                    x=vc.index,
+                    y=vc.values,
+                    title=f"Distribution de '{col_cat}'",
+                    labels={col_cat: "Catégorie", "y": "Nombre"},
+                    color=vc.index,
+                    color_discrete_sequence=px.colors.qualitative.Bold
+                )
             else:
                 vc = df[col_cat].value_counts()
-                fig = px.pie(values=vc.values, names=vc.index, title=f"Distribution de '{col_cat}'")
+                fig = px.pie(
+                    names=vc.index,
+                    values=vc.values,
+                    title=f"Distribution de '{col_cat}'",
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e0e0ff")
             st.plotly_chart(fig, use_container_width=True)
             st.info("👉 Utilisez le bouton 📥 en haut à droite du graphique pour le télécharger.")
@@ -565,6 +563,7 @@ if selected == "📈 Visualisation":
             st.info("👉 Utilisez le bouton 📥 en haut à droite du graphique pour le télécharger.")
     else:
         st.warning("⚠️ Veuillez importer un jeu de données et le nettoyer d'abord.")
+
 # --- Page Téléchargement ---
 if selected == "💾 Téléchargement":
     st.header("💾 Exporter les données nettoyées")
