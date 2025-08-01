@@ -10,7 +10,7 @@ import os
 
 # --- Configuration de la page ---
 st.set_page_config(
-    page_title="DataClean Pro 🌟",
+    page_title="DDC – Smart Data Cleaner 🌟",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -215,7 +215,7 @@ if "cleaned_data" not in st.session_state:
 
 # --- Page Accueil ---
 if selected == "🏠 Accueil":
-    st.title("🎯 Bienvenue dans DataClean Pro 🌟")
+    st.title("🎯 Welcome to the DDC Data Cleaner – Easily Clean and Analyze Your Data 🌟")
     st.markdown("""
     <div style='text-align:center; font-size:1.2rem; color:#b0b0d0; margin-bottom:2rem;'>
         L'application ultime pour nettoyer, analyser et visualiser vos données en un clin d'œil.
