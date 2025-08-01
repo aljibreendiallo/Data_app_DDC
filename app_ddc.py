@@ -601,13 +601,12 @@ if selected == "💾 Téléchargement":
 
 # --- Page À propos ---
 if selected == "ℹ️ À propos":
-    st.header("ℹ️ À propos de DataClean Pro 🌟")
+    st.header("ℹ️ À propos de DDC – Smart Data Cleaner🌟")
     st.markdown("""
     <div style='text-align:center; font-size:1.1rem; color:#b0b0d0; line-height:1.8;'>
         <p>✨ Créée par Alpha Oumar DIALLO.</p>
         <p>🚀 Une application entièrement gratuite, open-source et conçue pour rendre l’analyse de données accessible à tous.</p>
-        <p>🔗 GitHub : <a href="https://github.com/votre-repo/dataclean-pro" target="_blank" style="color:#00c8ff;">https://github.com/votre-repo/dataclean-pro</a></p>
-        <p>📧 Contact : contact@datapro.com</p>
+        <p>📧 Contact : alphaoumar.diallo5@unchk.edu.sn</p>
     </div>
     """, unsafe_allow_html=True)
     st.image("https://cdn-icons-png.flaticon.com/512/1138/1138548.png", width=150, use_column_width=False)
