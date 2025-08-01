@@ -167,6 +167,7 @@ h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
+
 # --- Icônes SVG personnalisées ---
 def icon_svg(icon_name):
     icons = {
@@ -180,17 +181,63 @@ def icon_svg(icon_name):
     }
     return icons.get(icon_name, "")
 
+
+# --- Vérification de connexion ---
+def check_login():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        st.title("🔐 Connexion requise")
+        st.markdown("Veuillez vous connecter pour accéder à l'application.")
+
+        email = st.text_input("📧 Email", value="")
+        password = st.text_input("🔒 Mot de passe", type="password")
+
+        if st.button("Se connecter"):
+            if email == "ddc@unchk.edu.sn" and password == "DDC@DDC":
+                st.session_state.logged_in = True
+                st.success("✅ Connexion réussie !")
+                st.rerun()
+            else:
+                st.error("❌ Email ou mot de passe incorrect.")
+        st.stop()
+
+
+# --- Bouton de déconnexion ---
+def show_logout():
+    if st.sidebar.button("🔓 Se déconnecter"):
+        st.session_state.logged_in = False
+        st.session_state.df = None
+        st.session_state.cleaned_data = None
+        st.rerun()
+
+
+# --- Vérifier la connexion ---
+check_login()
+
 # --- Barre latérale navigation ---
 with st.sidebar:
+    show_logout()
     selected = option_menu(
         "📊 DDC – Smart Data Cleaner",
-        ["🏠 Accueil", "🧹 Nettoyage", "📊 Tableau de bord", "📊 EDA", "📈 Visualisation", "💾 Téléchargement", "ℹ️ À propos"],
+        [
+            "🏠 Accueil",
+            "🧹 Nettoyage",
+            "📊 Tableau de bord",
+            "📊 EDA",
+            "📈 Visualisation",
+            "🧩 Tableau Croisé",
+            "💾 Téléchargement",
+            "ℹ️ À propos"
+        ],
         icons=[
             icon_svg("home"),
             icon_svg("clean"),
             icon_svg("dashboard"),
             icon_svg("eda"),
             icon_svg("chart"),
+            '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M4 4l16 16M4 20L20 4"></path></svg>',
             icon_svg("download"),
             icon_svg("info")
         ],
@@ -254,11 +301,13 @@ if selected == "🧹 Nettoyage":
             except Exception as e:
                 st.error(f"Erreur lors du chargement du fichier : {e}")
                 df = None
+
         if df is not None:
             st.success(f"✅ Fichier chargé avec succès ! {df.shape[0]} lignes et {df.shape[1]} colonnes.")
             n_duplicates = df.duplicated().sum()
             st.info(f"📋 Nombre total de doublons détectés : **{n_duplicates}** sur {df.shape[0]} lignes.")
             st.dataframe(df.head(10), use_container_width=True)
+
             st.subheader("🔧 Paramètres de nettoyage")
             object_cols = df.select_dtypes(include=['object']).columns.tolist()
             if not object_cols:
@@ -271,6 +320,7 @@ if selected == "🧹 Nettoyage":
                     lower_cols = st.multiselect("🔡 Minuscules", [c for c in object_cols if c not in strip_cols], help="Convertit en minuscules")
                 with col3:
                     upper_cols = st.multiselect("🔠 Majuscules", [c for c in object_cols if c not in strip_cols + lower_cols], help="Convertit en majuscules")
+
             st.subheader("🗑️ Suppression des doublons")
             dup_cols = st.multiselect(
                 "Colonnes pour détecter les doublons",
@@ -307,13 +357,16 @@ if selected == "📊 Tableau de bord":
                 if key.startswith("filter_") or key in ["global_search", "chart_type_dash", "cat_dash_chart"]:
                     del st.session_state[key]
             st.experimental_rerun()
+
         if 'filter_cols' not in st.session_state:
             st.session_state.filter_cols = df.columns.tolist()
         if 'global_search' not in st.session_state:
             st.session_state.global_search = ""
+
         cols = st.multiselect("📋 Colonnes à afficher", df.columns.tolist(), default=st.session_state.filter_cols)
         st.session_state.filter_cols = cols
         df_filtered = df[cols].copy()
+
         # 🔍 Recherche globale
         st.subheader("🔍 Recherche textuelle globale")
         global_search = st.text_input(
@@ -328,6 +381,7 @@ if selected == "📊 Tableau de bord":
             for col in text_cols:
                 mask |= df_filtered[col].astype(str).str.contains(global_search, case=False, na=False)
             df_filtered = df_filtered[mask]
+
         # 🎛️ Filtres par colonne
         st.subheader("🎛️ Filtres par colonne")
         for col in cols:
@@ -357,9 +411,11 @@ if selected == "📊 Tableau de bord":
                     (df_filtered[col] >= range_val[0]) &
                     (df_filtered[col] <= range_val[1])
                 ]
+
         # Affichage des résultats
         st.subheader(f"📋 Données filtrées ({df_filtered.shape[0]} lignes)")
         st.dataframe(df_filtered, use_container_width=True)
+
         # --- Visualisation interactive ---
         st.subheader("📊 Visualisation dynamique")
         cat_cols = df_filtered.select_dtypes(include='object').columns.tolist()
@@ -394,6 +450,7 @@ if selected == "📊 Tableau de bord":
             st.info("👉 Utilisez le bouton 📥 en haut à droite du graphique pour le télécharger.")
         else:
             st.info("Aucune colonne catégorielle disponible pour la visualisation.")
+
         # --- Téléchargement des données filtrées ---
         st.subheader("💾 Exporter les données filtrées")
         csv = df_filtered.to_csv(index=False).encode('utf-8')
@@ -475,7 +532,6 @@ if selected == "📊 EDA":
                         st.markdown(f"**Mode :** `{mode_str}`")
                         top_vals = df[col].value_counts().head(10)
                         st.dataframe(top_vals.to_frame("Fréquence"), use_container_width=True)
-                        # 🔴 Graphique en barres COLORÉ
                         fig = px.bar(
                             top_vals,
                             x=top_vals.index,
@@ -497,7 +553,7 @@ if selected == "📊 EDA":
                         "Min/Moyenne/Mode": stats["Min"] if pd.api.types.is_numeric_dtype(df[col]) else mode_str,
                         "Max/Exemple": stats["Max"] if pd.api.types.is_numeric_dtype(df[col]) else str(df[col].dropna().iloc[0] if len(df[col].dropna()) > 0 else "—")
                     })
-            # --- Générer le rapport Excel ---
+            # --- Télécharger le rapport EDA en Excel ---
             st.subheader("📥 Télécharger le rapport EDA en Excel")
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
@@ -513,6 +569,7 @@ if selected == "📊 EDA":
                 worksheet.set_column("B:B", 12)
                 worksheet.set_column("C:F", 14)
             excel_data = excel_buffer.getvalue()
+
             st.download_button(
                 label=f"{icon_svg('download')} 📥 Télécharger le rapport EDA (Excel)",
                 data=excel_data,
@@ -564,6 +621,159 @@ if selected == "📈 Visualisation":
     else:
         st.warning("⚠️ Veuillez importer un jeu de données et le nettoyer d'abord.")
 
+# --- Page Tableau Croisé Dynamique ---
+if selected == "🧩 Tableau Croisé":
+    st.header("🧩 Tableau Croisé Dynamique 🔄")
+    df = st.session_state.cleaned_data
+
+    if df is not None and not df.empty:
+        st.info("Créez un tableau croisé dynamique en choisissant vos colonnes de regroupement (1 ou plusieurs).")
+
+        all_cols = df.columns.tolist()
+
+        # Sélection des colonnes de groupby
+        group_cols = st.multiselect(
+            "📋 Colonnes de regroupement (group by)",
+            options=all_cols,
+            default=all_cols[:2] if len(all_cols) >= 2 else all_cols[:1],
+            help="Sélectionnez une ou plusieurs colonnes pour grouper les données"
+        )
+
+        if not group_cols:
+            st.warning("Veuillez sélectionner au moins une colonne.")
+        else:
+            try:
+                # 1. Calcul du tableau croisé
+                if len(group_cols) == 1:
+                    cross_tab = pd.crosstab(index=df[group_cols[0]], columns="Count")
+                    cross_tab.columns = ['Count']
+                elif len(group_cols) == 2:
+                    cross_tab = pd.crosstab(index=df[group_cols[0]], columns=df[group_cols[1]])
+                else:
+                    cross_tab = df.groupby(group_cols).size().unstack(fill_value=0, level=-1)
+
+                if cross_tab.empty:
+                    st.warning("Le tableau croisé est vide. Vérifiez vos données.")
+                else:
+                    # 2. Initialisation des états
+                    if 'pivoted' not in st.session_state:
+                        st.session_state.pivoted = False
+                    if 'sort_column' not in st.session_state:
+                        st.session_state.sort_column = None
+                    if 'sort_ascending' not in st.session_state:
+                        st.session_state.sort_ascending = True
+
+                    # 3. Boutons d'action
+                    col1, col2, col3 = st.columns([2, 2, 2])
+                    with col1:
+                        metric = st.radio(
+                            "📊 Métrique",
+                            ["Compte (Count)", "Pourcentage du total", "Pourcentage par ligne", "Pourcentage par colonne"],
+                            horizontal=True
+                        )
+                    with col2:
+                        if st.button("🔄 Pivoter les colonnes", help="Échange lignes et colonnes du tableau"):
+                            st.session_state.pivoted = not st.session_state.pivoted
+                    with col3:
+                        if st.button("🔁 Réinitialiser", help="Réinitialise pivot, tri et filtres"):
+                            st.session_state.pivoted = False
+                            st.session_state.sort_column = None
+                            st.session_state.sort_ascending = True
+                            st.experimental_rerun()
+
+                    # 4. Appliquer le pivot
+                    current_cross_tab = cross_tab.T if st.session_state.pivoted else cross_tab
+
+                    # 5. Calculer la métrique
+                    if metric == "Compte (Count)":
+                        base_df = current_cross_tab.copy()
+                        display_df = current_cross_tab.copy()
+                    elif metric == "Pourcentage du total":
+                        base_df = (current_cross_tab / current_cross_tab.sum().sum()) * 100
+                        display_df = base_df.round(2).astype(str) + " %"
+                    elif metric == "Pourcentage par ligne":
+                        row_sums = current_cross_tab.sum(axis=1)
+                        base_df = current_cross_tab.div(row_sums, axis=0) * 100
+                        display_df = base_df.round(2).astype(str) + " %"
+                    elif metric == "Pourcentage par colonne":
+                        col_sums = current_cross_tab.sum(axis=0)
+                        base_df = current_cross_tab.div(col_sums, axis=1) * 100
+                        display_df = base_df.round(2).astype(str) + " %"
+
+                    # 6. Ajouter la colonne "Total"
+                    if metric == "Compte (Count)":
+                        display_df["Total"] = display_df.sum(axis=1).astype(int)
+                        total_row = display_df.sum(axis=0).astype(int)
+                    else:
+                        temp_numeric = display_df.replace("%", "", regex=True).astype(float)
+                        display_df["Total"] = temp_numeric.sum(axis=1).round(2).astype(str) + " %"
+                        total_row = temp_numeric.sum(axis=0).round(2).astype(str) + " %"
+
+                    # 7. Ajouter la ligne "Total"
+                    total_row.name = "Total"
+                    display_df_with_total = pd.concat([display_df, pd.DataFrame([total_row])])
+
+                    # 8. Afficher l'état du pivot
+                    st.caption(f"🔁 Mode : {'Lignes ↔ Colonnes' if st.session_state.pivoted else 'Normal'}")
+
+                    # 9. Affichage du tableau
+                    st.subheader(f"📋 {metric} (avec totaux) {'- Vue pivotée' if st.session_state.pivoted else ''}")
+                    st.dataframe(display_df_with_total, use_container_width=True)
+
+                    # 10. Graphique (uniquement si 1 ou 2 dimensions)
+                    if len(group_cols) <= 2:
+                        st.subheader("📈 Visualisation")
+                        plot_df = base_df.copy()
+                        if "Total" in plot_df.index:
+                            plot_df = plot_df.drop("Total")
+                        if "Total" in plot_df.columns:
+                            plot_df = plot_df.drop("Total", axis=1)
+
+                        if len(plot_df.index.names) > 1 or len(plot_df.columns) == 0:
+                            st.info("📊 Graphique non disponible pour cette structure.")
+                        else:
+                            if len(group_cols) == 1 or not st.session_state.pivoted:
+                                x_col = plot_df.index.name or plot_df.index.names[0] or "Index"
+                                melted = plot_df.reset_index().melt(id_vars=x_col, var_name="Catégorie", value_name="Valeur")
+                                fig = px.bar(
+                                    melted,
+                                    x=x_col,
+                                    y="Valeur",
+                                    color="Catégorie",
+                                    title=f"{metric} : {x_col} vs {melted.columns[-1]}",
+                                    barmode="group",
+                                    color_discrete_sequence=px.colors.qualitative.Bold
+                                )
+                            else:
+                                fig = px.bar(
+                                    plot_df.T,
+                                    title=f"{metric} (vue transposée)",
+                                    barmode="group",
+                                    color_discrete_sequence=px.colors.qualitative.Bold
+                                )
+                            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e0e0ff")
+                            st.plotly_chart(fig, use_container_width=True)
+
+                    # 11. Export Excel
+                    st.subheader("📥 Exporter le tableau (avec totaux)")
+                    excel_buffer = BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                        display_df_with_total.to_excel(writer, sheet_name='Tableau_Croisé')
+                    excel_data = excel_buffer.getvalue()
+
+                    st.download_button(
+                        label="📊 Télécharger en Excel (.xlsx)",
+                        data=excel_data,
+                        file_name=f"tableau_croise_{metric.lower().replace(' ', '_')}_{'pivote_' if st.session_state.pivoted else ''}avec_totaux.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+
+            except Exception as e:
+                st.error(f"❌ Erreur : {str(e)}")
+    else:
+        st.warning("⚠️ Veuillez d'abord importer et nettoyer un jeu de données.")
+
 # --- Page Téléchargement ---
 if selected == "💾 Téléchargement":
     st.header("💾 Exporter les données nettoyées")
@@ -601,12 +811,13 @@ if selected == "💾 Téléchargement":
 
 # --- Page À propos ---
 if selected == "ℹ️ À propos":
-    st.header("ℹ️ À propos de DDC – Smart Data Cleaner🌟")
+    st.header("ℹ️ À propos de DDC – Smart Data Cleaner 🌟")
     st.markdown("""
     <div style='text-align:center; font-size:1.1rem; color:#b0b0d0; line-height:1.8;'>
         <p>✨ Créée par Alpha Oumar DIALLO.</p>
         <p>🚀 Une application entièrement gratuite, open-source et conçue pour rendre l’analyse de données accessible à tous.</p>
-        <p>📧 Contact : alphaoumar.diallo5@unchk.edu.sn</p>
+        <p>🔗 GitHub : <a href="https://github.com/votre-repo/dataclean-pro" target="_blank" style="color:#00c8ff;">https://github.com/votre-repo/dataclean-pro</a></p>
+        <p>📧 Contact : contact@datapro.com</p>
     </div>
     """, unsafe_allow_html=True)
     st.image("https://cdn-icons-png.flaticon.com/512/1138/1138548.png", width=150, use_column_width=False)
