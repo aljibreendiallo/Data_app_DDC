@@ -288,22 +288,66 @@ if selected == "🏠 Accueil":
 # --- Page Nettoyage ---
 if selected == "🧹 Nettoyage":
     st.header("🧹 Nettoyage des données")
+    
+    if 'excel_info' not in st.session_state:
+        st.session_state.excel_info = None
+
     uploaded_file = st.file_uploader("📤 Importer un fichier CSV ou Excel", type=["csv", "xlsx"], key="upload_clean")
-    if uploaded_file:
-        with st.spinner("🔄 Chargement du fichier..."):
-            time.sleep(0.8)
-            try:
+
+    if st.session_state.excel_info is not None:
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🔄 Recharger les feuilles", key="reload_sheets"):
+                st.session_state.excel_info = None
+                st.experimental_rerun()
+
+    if uploaded_file is None:
+        st.info("⬆️ Importez un fichier pour commencer.")
+        if st.session_state.excel_info is not None:
+            st.session_state.excel_info = None
+    else:
+        try:
+            need_to_load = (st.session_state.excel_info is None or 
+                            st.session_state.excel_info['file'] != uploaded_file.name)
+
+            if need_to_load:
                 if uploaded_file.name.endswith(".csv"):
                     df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                st.session_state.df = df
-            except Exception as e:
-                st.error(f"Erreur lors du chargement du fichier : {e}")
-                df = None
+                    st.session_state.excel_info = {
+                        'file': uploaded_file.name,
+                        'type': 'csv',
+                        'data': df
+                    }
+                    st.success(f"✅ CSV chargé : {df.shape[0]} lignes, {df.shape[1]} colonnes.")
+                elif uploaded_file.name.endswith(".xlsx"):
+                    excel_file = pd.ExcelFile(uploaded_file)
+                    sheet_names = excel_file.sheet_names
+                    selected_sheet = sheet_names[0]
+                    df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+                    st.session_state.excel_info = {
+                        'file': uploaded_file.name,
+                        'type': 'excel',
+                        'sheet_names': sheet_names,
+                        'selected_sheet': selected_sheet,
+                        'data': df
+                    }
+                    st.success(f"✅ Excel chargé : {len(sheet_names)} feuille(s). Affichage : '{selected_sheet}'.")
 
-        if df is not None:
-            st.success(f"✅ Fichier chargé avec succès ! {df.shape[0]} lignes et {df.shape[1]} colonnes.")
+            df = st.session_state.excel_info['data']
+
+            if st.session_state.excel_info['type'] == 'excel':
+                current_sheet = st.session_state.excel_info['selected_sheet']
+                new_sheet = st.selectbox(
+                    "📋 Sélectionnez une feuille Excel",
+                    options=st.session_state.excel_info['sheet_names'],
+                    index=st.session_state.excel_info['sheet_names'].index(current_sheet)
+                )
+                if new_sheet != current_sheet:
+                    df = pd.read_excel(uploaded_file, sheet_name=new_sheet)
+                    st.session_state.excel_info['selected_sheet'] = new_sheet
+                    st.session_state.excel_info['data'] = df
+                    st.experimental_rerun()
+
             n_duplicates = df.duplicated().sum()
             st.info(f"📋 Nombre total de doublons détectés : **{n_duplicates}** sur {df.shape[0]} lignes.")
             st.dataframe(df.head(10), use_container_width=True)
@@ -328,6 +372,7 @@ if selected == "🧹 Nettoyage":
                 default=df.columns.tolist() if n_duplicates > 0 else [],
                 help="Les doublons seront supprimés en se basant sur ces colonnes"
             )
+
             if st.button("🧹 Appliquer le nettoyage", key="clean_btn"):
                 df_clean = df.copy()
                 for col in strip_cols:
@@ -344,8 +389,9 @@ if selected == "🧹 Nettoyage":
                 st.session_state.cleaned_data = df_clean
                 st.success(f"🧹 Nettoyage terminé ! {df_clean.shape[0]} lignes restantes.")
                 st.dataframe(df_clean.head(10), use_container_width=True)
-    else:
-        st.info("⬆️ Importez un fichier pour commencer.")
+
+        except Exception as e:
+            st.error(f"❌ Erreur lors du chargement du fichier : {e}")
 
 # --- Page Tableau de bord ---
 if selected == "📊 Tableau de bord":
